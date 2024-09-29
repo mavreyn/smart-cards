@@ -10,6 +10,8 @@ import OpenAI from "openai";
 import admin from 'firebase-admin';
 import { initializeApp, applicationDefault, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { getStorage } from 'firebase-admin/storage';
+import { format } from 'util';
 import dotenv from 'dotenv';
 import session from 'express-session';
 import passport from 'passport';
@@ -30,7 +32,8 @@ const serviceAccount = {
   };
 
 admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount)
+    credential: admin.credential.cert(serviceAccount),
+    storageBucket: process.env.FIREBASE_STORAGE_BUCKET
 });
   
 const db = getFirestore();
@@ -46,7 +49,18 @@ app.use(cors({
     credentials: true // Allow credentials (cookies, sessions)
 }));
 
-app.use(fileUpload()); 
+dotenv.config();
+
+app.use(fileUpload());
+
+app.use(session({
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false
+}));
+
+app.use(passport.initialize());
+app.use(passport.session());
 
 // Function to send a prompt to OpenAI for verification
 const verifyReceipt = async (imageData) => {
@@ -165,7 +179,14 @@ const extractReceiptDetails = async (imageData) => {
     }
 };
 
+// const __filename = fileURLToPath(import.meta.url);
+// const __dirname = path.dirname(__filename);
+
 app.post('/upload', async (req, res) => {
+    if (!req.isAuthenticated()) {
+        return res.status(401).send('You need to be logged in to upload files');
+      }
+
     if (!req.files || Object.keys(req.files).length === 0) {
         return res.status(400).send('No files were uploaded.');
     }   
@@ -173,13 +194,31 @@ app.post('/upload', async (req, res) => {
         console.log(req.files);
     }
     const image = req.files.image;
+    const userId = req.user.id; // Google profile ID
+
+    // Step 1: Initialize Firebase Storage and get a reference to the bucket
+    const bucket = admin.storage().bucket();
+    const fileName = `${Date.now()}_${image.name}`;  // Ensure a unique file name
+    const file = bucket.file(fileName);
 
     // Example: Use Google Cloud Vision API or similar.
     try {
+        // Step 2: Upload the image to Firebase Storage
+        await file.save(image.data, {
+            metadata: {
+                contentType: image.mimetype,  // Ensure the file has the correct content type
+            },
+        });
+
+        // Step 3: Make the file public (optional) and get the download URL
+        const downloadURL = format(
+            `https://storage.googleapis.com/${bucket.name}/${fileName}`
+        );
+
+        console.log('Image uploaded to Firebase Storage:', downloadURL);
 
         // Step 1: Verify if the image is a receipt using OpenAI's model
         const isReceipt = await verifyReceipt(image.data);
-
         if (!isReceipt) {
             return res.status(400).json({ message: 'The uploaded file is not recognized as a receipt.' });
         }
@@ -188,20 +227,31 @@ app.post('/upload', async (req, res) => {
         const receiptDetails = await extractReceiptDetails(image.data);
 
         // Step 3: Categorize the items in the receipt via pretrained model
-        const pythonResponse = await axios.post('http://127.0.0.1:5001/autocategorize', {
+        const pythonResponse = await axios.post('http://localhost:5001/autocategorize', {
             items: receiptDetails.items  // Send JSON object containing the items
         }, {
             headers: {
                 'Content-Type': 'application/json'  // Make sure Content-Type is set to JSON
             }
         });
-
         
         const categorizedItems = pythonResponse.data;
         // remove receiptDetails.items and add categorizedItems
         receiptDetails.items = categorizedItems;
 
         console.log(receiptDetails);
+
+        // Store the receipt data in Firestore under the user's profile, grouped by the image name
+        const userRef = db.collection('users').doc(userId);
+        await userRef.update({
+            receipts: admin.firestore.FieldValue.arrayUnion({
+                fileName: image.name,  // Name of the uploaded image
+                items: receiptDetails.items,  // Array of categorized items
+                tax: receiptDetails.tax,  // Tax amount
+                total: receiptDetails.total,  // Total amount
+                uploadedAt: new Date(),  // Timestamp of upload
+            })
+        });
 
         // Send the response back to the client
         // res.json(response.data);
@@ -212,7 +262,8 @@ app.post('/upload', async (req, res) => {
             fileType: image.mimetype,
             productInfo: receiptDetails.items,
             tax: receiptDetails.tax,
-            total: receiptDetails.total
+            total: receiptDetails.total,
+            fileURL: downloadURL  // Return the Firebase Storage URL to the client
         });
 
     } catch (error) {
@@ -220,17 +271,6 @@ app.post('/upload', async (req, res) => {
         res.status(500).send('Error processing the image.');
     }
 });
-
-dotenv.config();
-
-app.use(session({
-    secret: process.env.SESSION_SECRET,
-    resave: false,
-    saveUninitialized: false
-}));
-
-app.use(passport.initialize());
-app.use(passport.session());
 
 passport.use(new googleStrategy({
     clientID: process.env.CLIENT_ID,
@@ -288,7 +328,7 @@ app.get('/auth/google',
 );
 
 app.get('/auth/google/callback', 
-    passport.authenticate('google', { failureRedirect: '/' }),
+    passport.authenticate('google', { failureRedirect: 'http://localhost:5173' }),
     function(req, res) {
         // Successful authentication, redirect to frontend
         res.redirect('http://localhost:5173/upload');
@@ -301,66 +341,6 @@ app.get('/api/user', (req, res) => {
       res.json(req.user);
     } else {
       res.status(401).send('Not authenticated');
-    }
-});
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-app.post('/upload', async (req, res) => {
-    if (!req.isAuthenticated()) {
-        return res.status(401).send('You need to be logged in to upload files');
-      }
-
-    if (!req.files || Object.keys(req.files).length === 0) {
-        return res.status(400).send('No files were uploaded.');
-    }   
-    else {
-        console.log(req.files);
-    }
-    const image = req.files.image;
-    const userId = req.user.id; // Google profile ID
-
-    const uploadDir = path.join(__dirname, 'uploads');
-    if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir);
-    }
-
-    const uploadPath = path.join(uploadDir, image.name);
-    // Example: Use Google Cloud Vision API or similar.
-    try {
-        // const response = await axios.post('/api/upload', {
-        //     image: image.data,
-        //     // Additional parameters...
-        // });
-        // Define where to save the file (for simplicity, storing locally)
-        await image.mv(uploadPath);  // Move the file to the upload path 
-
-        console.log('Image uploaded:', image.name, image.data);
-
-        // Save file metadata to Firebase Firestore under the user's profile
-        const userRef = db.collection('users').doc(userId);
-        await userRef.update({
-            files: admin.firestore.FieldValue.arrayUnion({
-                fileName: image.name,
-                filePath: uploadPath,
-                fileSize: image.size,
-                uploadedAt: new Date(),
-            })
-        });
-
-        // Send the response back to the client
-        // res.json(response.data);
-        res.json({
-            message: 'Image uploaded successfully!',
-            fileName: image.name,
-            fileSize: image.size,
-            fileType: image.mimetype
-        });
-        
-    } catch (error) {
-        console.error('Error calling image recognition API:', error);
-        res.status(500).send('Error processing the image.');
     }
 });
 
