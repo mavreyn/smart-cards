@@ -25,12 +25,15 @@ npm i
 
 To run _SmartCards_:
 
-Start the server
+Start the express server
 ```bash
 node server/server.js
 ```
-
-And the development server in a new terminal
+And the Python server
+```bash
+python server.py
+```
+And the live development server
 ```bash
 npm run dev
 ```
@@ -55,10 +58,6 @@ We're constantly working to improve _SmartCards_. Here are some features we're e
 - Mobile app for on-the-go receipt scanning and financial management
 - Improved investment opportunity detection
 - Social features for comparing anonymized spending habits with peers
-
-## License
-
-_SmartCards_ is released under the [MIT License](LICENSE).
 
 ## Acknowledgements
 

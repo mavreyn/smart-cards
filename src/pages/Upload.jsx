@@ -48,7 +48,7 @@ const Upload = () => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center h-screen bg-gray-100 p-4 overflow-hidden">
+    <div className="flex flex-col items-center justify-center h-screen p-4 overflow-hidden">
       <div className="bg-white rounded-lg shadow-md p-6 w-full max-w-md overflow-y-auto max-h-full">
         <label className="block mb-4">
           <span className="sr-only">Choose file</span>

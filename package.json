@@ -16,6 +16,7 @@
     "express": "^4.21.0",
     "express-fileupload": "^1.5.1",
     "express-session": "^1.18.0",
+    "openai": "^4.65.0",
     "firebase-admin": "^12.5.0",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",

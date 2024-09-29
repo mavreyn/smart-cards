@@ -14,12 +14,12 @@ function AppContent() {
   return (
     <div>
       {isHomePage ? (
-        <>
+        <div className="bg-gradient-to-b from-blue-50 to-blue-200 min-h-screen overflow-hidden">
           <HomeNavbar />
-          <Home />
-        </>
+          <Home/>
+        </div>
       ) : (
-        <div className="flex w-full h-screen">
+        <div className="flex w-full h-screen bg-blue-100">
           <Navbar />
           <div className="flex-grow">
             <Routes>
