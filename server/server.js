@@ -179,9 +179,6 @@ const extractReceiptDetails = async (imageData) => {
     }
 };
 
-// const __filename = fileURLToPath(import.meta.url);
-// const __dirname = path.dirname(__filename);
-
 app.post('/upload', async (req, res) => {
     if (!req.isAuthenticated()) {
         return res.status(401).send('You need to be logged in to upload files');
