@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import logo from '../assets/logoSmartCards.png';
+import googleSignin from '../assets/google_signin_round.png';
 
 const HomeNavbar = () => {
   const handleLogin = () => {
@@ -16,9 +17,10 @@ const HomeNavbar = () => {
             <Link to="/" className="text-3xl font-bold text-white hover:text-blue-200">SmartCards</Link>
           </div>
           <div className="flex items-center space-x-4">
-            <Link to="/upload" className="text-white hover:text-blue-200 text-lg font-bold">About</Link>
-            <button onClick={handleLogin} className="bg-white text-blue-700 px-4 py-2 rounded hover:bg-blue-100 transition duration-150 ease-in-out">
-              <h1 className="text-blue-700 hover:text-blue-900 text-lg font-bold">Log In</h1>
+            <Link to="/" className="text-white hover:text-blue-200 text-lg font-bold">Home</Link>
+            <Link to="/" className="text-white hover:text-blue-200 text-lg font-bold">About</Link>
+            <button onClick={handleLogin} className="transition duration-150 ease-in-out transform hover:scale-103">
+              <img src={googleSignin} alt="Google Sign In" className="h-10" />
             </button>
           </div>
         </div>

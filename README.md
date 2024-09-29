@@ -1,5 +1,3 @@
-# SmartCards
-
 ![SmartCards Banner](src/assets/SmartCards_Banner.png)
 
 _SmartCards_ is a user-friendly addon for your budgeting app to help you better categorize your transactions and find investing opportunities from each purchase. Simply upload a picture of any receipt and our GenAI technology will organize your purchases while providing insights to help your financial future.

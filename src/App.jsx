@@ -6,6 +6,7 @@ import Items from './pages/Items';
 import Insights from './pages/Insights';
 import Navbar from './components/Navbar';
 import HomeNavbar from './components/HomeNavbar';
+import { UploadProvider } from './context/UploadContext';
 
 function AppContent() {
   const location = useLocation();
@@ -21,7 +22,7 @@ function AppContent() {
       ) : (
         <div className="flex w-full h-screen bg-blue-100">
           <Navbar />
-          <div className="flex-grow">
+          <div className="flex-grow overflow-y-auto">
             <Routes>
               <Route exact path="/upload" Component={Upload} />
               <Route exact path="/items" Component={Items} />
@@ -36,9 +37,11 @@ function AppContent() {
 
 function App() {
   return (
-    <BrowserRouter>
-      <AppContent />
-    </BrowserRouter>
+    <UploadProvider>
+      <BrowserRouter>
+        <AppContent />
+      </BrowserRouter>
+    </UploadProvider>
   );
 }
 

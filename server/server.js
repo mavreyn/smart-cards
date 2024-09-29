@@ -16,6 +16,7 @@ import dotenv from 'dotenv';
 import session from 'express-session';
 import passport from 'passport';
 import { Strategy as googleStrategy } from 'passport-google-oauth20';
+import creditCard from '../src/creditCard.js';
 dotenv.config();
 
 const serviceAccount = {
@@ -179,6 +180,19 @@ const extractReceiptDetails = async (imageData) => {
     }
 };
 
+const calculateCashback = async (total, card) => {
+    // find the card from creditCard
+    let cardInfo = creditCard[card];
+    // calculate cashback
+    let cashback = total * cardInfo.cashback;
+    
+    // round to 2 decimal places
+    cashback = cashback.toFixed(2);
+
+    return cashback;
+
+}
+
 app.post('/upload', async (req, res) => {
     if (!req.isAuthenticated()) {
         return res.status(401).send('You need to be logged in to upload files');
@@ -191,6 +205,9 @@ app.post('/upload', async (req, res) => {
         console.log(req.files);
     }
     const image = req.files.image;
+  
+    let payment_method = req.body.payment_method;
+
     const userId = req.user.id; // Google profile ID
 
     // Step 1: Initialize Firebase Storage and get a reference to the bucket
@@ -222,7 +239,9 @@ app.post('/upload', async (req, res) => {
 
         // Step 2: Extract Item Details from the Receipt + Tax
         const receiptDetails = await extractReceiptDetails(image.data);
+        const fileDetails = {};
 
+        console.log(receiptDetails);
         // Step 3: Categorize the items in the receipt via pretrained model
         const pythonResponse = await axios.post('http://localhost:5001/autocategorize', {
             items: receiptDetails.items  // Send JSON object containing the items
@@ -233,10 +252,25 @@ app.post('/upload', async (req, res) => {
         });
         
         const categorizedItems = pythonResponse.data;
-        // remove receiptDetails.items and add categorizedItems
         receiptDetails.items = categorizedItems;
 
-        console.log(receiptDetails);
+        // if payment method is not cash or checking, then incorporate cashback depending on the card
+        let cashbackCredit = 0;
+        if (payment_method !== 'CASH' && payment_method !== 'DEBIT') {
+            // FUNCTION TO DETERMINE CASHBACK
+            cashbackCredit = await calculateCashback(receiptDetails.total, payment_method);
+            // convert to float
+            cashbackCredit = parseFloat(cashbackCredit);
+        }
+
+        // add payment method and chasback to receiptDetails
+        receiptDetails.payment_method = payment_method;
+        receiptDetails.cashback = cashbackCredit;
+        
+        // save file name size and type to file
+        fileDetails.name = image.name;
+        fileDetails.size = image.size;
+        fileDetails.type = image.mimetype;
 
         // Store the receipt data in Firestore under the user's profile, grouped by the image name
         const userRef = db.collection('users').doc(userId);
@@ -246,12 +280,13 @@ app.post('/upload', async (req, res) => {
                 items: receiptDetails.items,  // Array of categorized items
                 tax: receiptDetails.tax,  // Tax amount
                 total: receiptDetails.total,  // Total amount
+                payment_method: receiptDetails.payment_method,
+                cashback: receiptDetails.cashback,
                 uploadedAt: new Date(),  // Timestamp of upload
             })
         });
-
+      
         // Send the response back to the client
-        // res.json(response.data);
         res.json({
             message: 'Image uploaded successfully!',
             fileName: image.name,
@@ -260,6 +295,8 @@ app.post('/upload', async (req, res) => {
             productInfo: receiptDetails.items,
             tax: receiptDetails.tax,
             total: receiptDetails.total,
+            payment_method: receiptDetails.payment_method,
+            cashback: receiptDetails.cashback,
             fileURL: downloadURL  // Return the Firebase Storage URL to the client
         });
 
