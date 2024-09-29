@@ -34,6 +34,7 @@ const Upload = () => {
     try {
       setUploadStatus('Uploading...');
       const response = await axios.post('http://localhost:5000/upload', formData, {
+        withCredentials: true,
         headers: {
           'Content-Type': 'multipart/form-data',
         },
