@@ -36,7 +36,7 @@ And the live development server
 npm run dev
 ```
 
-Then navigate to `http://localhost:3000` in your browser to access the _SmartCards_ interface
+Then navigate to `http://localhost:5173` in your browser to access the _SmartCards_ interface
 
 ## Walkthrough
 
